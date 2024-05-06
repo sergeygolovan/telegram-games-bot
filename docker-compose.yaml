@@ -1,0 +1,25 @@
+version: '2'
+
+services:
+  minio:
+    image: 'minio/minio:latest'
+    ports:
+      - '8380:9000'
+      - '8381:9001'
+    volumes:
+      - ./data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_SERVICE_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_SERVICE_ROOT_PASSWORD}
+      - MINIO_DEFAULT_BUCKETS=${MINIO_SERVICE_DEFAULT_BUCKET}
+    command: server /data -console-address ":9001"
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    ports:
+      - 8280:8978
+    volumes:
+      - ./prisma/dev.db:/opt/cloudbeaver/localdb/dev.db
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
+
+volumes:
+  cloudbeaver_data:

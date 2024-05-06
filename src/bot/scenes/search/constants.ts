@@ -1,0 +1,1 @@
+export const SEARCH_GAME_SCENE_ID = 'SEARCH_GAME_SCENE';
