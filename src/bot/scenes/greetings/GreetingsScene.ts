@@ -15,32 +15,32 @@ export class GreetingsScene extends ViewReplyBuilder {
   private message: Message = null;
 
   constructor(
-    private readonly databaseService: DatabaseService,
+    protected readonly databaseService: DatabaseService,
     protected readonly fileStorageService: FileStorageService,
   ) {
-    super(fileStorageService);
+    super(databaseService, fileStorageService);
   }
 
   @SceneEnter()
   async enter(@Ctx() ctx: SceneContext) {
-    const properties = await this.databaseService.getViewProperties(
+    this.message = await this.createViewReplyMessage(
+      ctx,
       ViewCode.GREETINGS_VIEW,
-    );
-
-    this.message = await this.createViewReplyMessage(ctx, properties, {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: 'Выбрать приставку',
-              callback_data: 'show_console_selection',
-            },
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'Выбрать приставку',
+                callback_data: 'show_console_selection',
+              },
+            ],
           ],
-        ],
-        resize_keyboard: true,
+          resize_keyboard: true,
+        },
       },
-    });
+    );
   }
 
   @Action('show_console_selection')

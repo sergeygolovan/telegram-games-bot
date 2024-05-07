@@ -4,7 +4,6 @@ import { SEARCH_GAME_SCENE_ID } from './constants';
 import { DatabaseService } from 'src/database/database.service';
 import { SceneContext, SceneSessionData } from 'telegraf/typings/scenes';
 import { Injectable } from '@nestjs/common';
-import { Game } from '@prisma/client';
 import { Markup } from 'telegraf';
 import { AbstractPaginatedListScene } from '../core';
 import {
@@ -12,12 +11,11 @@ import {
   InlineKeyboardMarkup,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { ISearchGameDataMarkup } from './types';
+import { GameWithCategory, ISearchGameDataMarkup } from './types';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
 import { ViewCode } from 'src/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
 import {
   ExtraEditMessageText,
   ExtraReplyMessage,
@@ -25,28 +23,35 @@ import {
 
 @Scene(SEARCH_GAME_SCENE_ID)
 @Injectable()
-export class SearchGameScene extends AbstractPaginatedListScene<Game> {
+export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory> {
   private viewReplyBuilder: ViewReplyBuilder;
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly fileStorageService: FileStorageService,
   ) {
     super(10);
-    this.viewReplyBuilder = new ViewReplyBuilder(fileStorageService);
+    this.viewReplyBuilder = new ViewReplyBuilder(
+      databaseService,
+      fileStorageService,
+    );
   }
 
-  protected async getDataset(ctx: SceneContext): Promise<Game[]> {
+  protected async getDataset(ctx: SceneContext): Promise<GameWithCategory[]> {
     const query: string = (ctx.scene.state['query'] || '').trim();
 
     if (!query) {
       return [];
     }
 
-    const games = await this.databaseService.game.findMany();
+    const games = await this.databaseService.game.findMany({
+      include: {
+        category: true,
+      },
+    });
 
     const fuse = new Fuse(games, {
       keys: ['name'],
-      threshold: 0.3,
+      threshold: 0.2,
     });
 
     const items = fuse.search(query, {
@@ -56,28 +61,27 @@ export class SearchGameScene extends AbstractPaginatedListScene<Game> {
     return items.map(({ item }) => item);
   }
 
-  protected async getDataMarkup(data: Game[]): Promise<ISearchGameDataMarkup> {
-    const properties = await this.databaseService.getViewProperties(
+  protected async getDataMarkup(
+    ctx: SceneContext,
+    data: GameWithCategory[],
+  ): Promise<ISearchGameDataMarkup> {
+    const markup = await this.viewReplyBuilder.getViewReplyMessageMarkup(
+      ctx,
       ViewCode.GAME_SEARCH_RESULTS_VIEW,
+      {
+        description: 'Мы нашли следующие игры по твоему запросу:',
+      },
     );
 
     return {
-      text:
-        properties.description || 'Мы нашли следующие игры по твоему запросу:',
-      image: await this.getDataMarkupImage(properties.image),
+      ...markup,
       buttons: data.map((game) => [
         {
-          text: game.name,
+          text: `${game.name} (${game.category.name})`,
           url: game.url,
         },
       ]),
     };
-  }
-
-  private async getDataMarkupImage(image: string) {
-    if (image) {
-      return this.fileStorageService.getObject(image);
-    }
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
@@ -99,10 +103,8 @@ export class SearchGameScene extends AbstractPaginatedListScene<Game> {
       return this.createEmptyListReplyMessage(ctx, markup);
     }
 
-    const transforedText = injectUserVariables(ctx, text);
-
     if (!image) {
-      return ctx.reply(transforedText, commonOptions);
+      return ctx.reply(text, commonOptions);
     }
 
     return ctx.sendPhoto(
@@ -110,7 +112,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<Game> {
         source: image,
       },
       {
-        caption: transforedText,
+        caption: text,
         ...commonOptions,
       },
     );
@@ -122,16 +124,15 @@ export class SearchGameScene extends AbstractPaginatedListScene<Game> {
     dataMarkup: ISearchGameDataMarkup,
   ): Promise<void> {
     const { text, image } = dataMarkup;
-    const transforedText = injectUserVariables(ctx, text);
     const commonOptions: ExtraEditMessageText = {
       parse_mode: 'HTML',
       reply_markup: markup,
     };
 
     if (!image) {
-      await ctx.editMessageText(transforedText, commonOptions);
+      await ctx.editMessageText(text, commonOptions);
     } else {
-      await ctx.editMessageCaption(transforedText, commonOptions);
+      await ctx.editMessageCaption(text, commonOptions);
     }
   }
 
@@ -139,13 +140,14 @@ export class SearchGameScene extends AbstractPaginatedListScene<Game> {
     ctx: SceneContext,
     markup: InlineKeyboardMarkup,
   ): Promise<Message> {
-    const properties = await this.databaseService.getViewProperties(
+    return this.viewReplyBuilder.createViewReplyMessage(
+      ctx,
       ViewCode.EMPTY_GAME_SEARCH_RESULTS_VIEW,
+      {
+        parse_mode: 'HTML',
+        reply_markup: markup,
+      },
     );
-    return this.viewReplyBuilder.createViewReplyMessage(ctx, properties, {
-      parse_mode: 'HTML',
-      reply_markup: markup,
-    });
   }
 
   @Action('back')

@@ -13,7 +13,6 @@ import {
 import { Markup } from 'telegraf';
 import { GAME_SELECTION_SCENE_ID } from './constants';
 import { IGameDataMarkup } from './types';
-import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
 import {
   ExtraEditMessageText,
   ExtraReplyMessage,
@@ -33,7 +32,10 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     private readonly fileStorageService: FileStorageService,
   ) {
     super(8);
-    this.viewReplyBuilder = new ViewReplyBuilder(fileStorageService);
+    this.viewReplyBuilder = new ViewReplyBuilder(
+      databaseService,
+      fileStorageService,
+    );
   }
 
   protected async getDataset(ctx: SceneContext): Promise<Game[]> {
@@ -49,21 +51,25 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     });
   }
 
-  protected async getDataMarkup(data: Game[]): Promise<IGameDataMarkup> {
-    const properties = await this.databaseService.getViewProperties(
+  protected async getDataMarkup(
+    ctx: SceneContext,
+    data: Game[],
+  ): Promise<IGameDataMarkup> {
+    const { description, image } =
+      await this.databaseService.category.findUniqueOrThrow({
+        where: { id: this.categoryId },
+      });
+
+    const markup = await this.viewReplyBuilder.getViewReplyMessageMarkup(
+      ctx,
       ViewCode.DEFAULT_CATEGORY_VIEW,
+      {
+        description,
+        image,
+      },
     );
 
-    const category = await this.databaseService.category.findUnique({
-      where: { id: this.categoryId },
-    });
-
-    const text = this.getDataMarkupText(
-      category.description || properties.description,
-    );
-    const image = await this.getDataMarkupImage(
-      category.image || properties.image,
-    );
+    markup.text = this.getDataMarkupText(markup.text);
 
     const buttons = data.map((game) => [
       {
@@ -73,8 +79,7 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     ]);
 
     return {
-      text,
-      image,
+      ...markup,
       buttons,
     };
   }
@@ -93,12 +98,6 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     return text;
   }
 
-  private async getDataMarkupImage(image: string) {
-    if (image) {
-      return this.fileStorageService.getObject(image);
-    }
-  }
-
   protected async createReplyMessage(
     ctx: SceneContext,
     markup: InlineKeyboardMarkup,
@@ -114,10 +113,8 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
       return this.createEmptyListReplyMessage(ctx, markup);
     }
 
-    const transforedText = injectUserVariables(ctx, text);
-
     if (!image) {
-      return ctx.reply(transforedText, commonOptions);
+      return ctx.reply(text, commonOptions);
     }
 
     return ctx.sendPhoto(
@@ -125,7 +122,7 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
         source: image,
       },
       {
-        caption: transforedText,
+        caption: text,
         ...commonOptions,
       },
     );
@@ -137,16 +134,15 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     dataMarkup: IGameDataMarkup,
   ) {
     const { text, image } = dataMarkup;
-    const transforedText = injectUserVariables(ctx, text);
     const commonOptions: ExtraEditMessageText = {
       parse_mode: 'HTML',
       reply_markup: markup,
     };
 
     if (!image) {
-      await ctx.editMessageText(transforedText, commonOptions);
+      await ctx.editMessageText(text, commonOptions);
     } else {
-      await ctx.editMessageCaption(transforedText, commonOptions);
+      await ctx.editMessageCaption(text, commonOptions);
     }
   }
 
@@ -154,13 +150,14 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     ctx: SceneContext,
     markup: InlineKeyboardMarkup,
   ): Promise<Message> {
-    const properties = await this.databaseService.getViewProperties(
+    return this.viewReplyBuilder.createViewReplyMessage(
+      ctx,
       ViewCode.EMPTY_CATEGORY_VIEW,
+      {
+        parse_mode: 'HTML',
+        reply_markup: markup,
+      },
     );
-    return this.viewReplyBuilder.createViewReplyMessage(ctx, properties, {
-      parse_mode: 'HTML',
-      reply_markup: markup,
-    });
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {

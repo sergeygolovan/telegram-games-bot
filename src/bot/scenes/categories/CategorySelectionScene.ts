@@ -15,7 +15,6 @@ import {
   ExtraEditMessageText,
   ExtraReplyMessage,
 } from 'telegraf/typings/telegram-types';
-import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
 import { SEARCH_GAME_SCENE_ID } from '../search/constants';
 import { Markup } from 'telegraf';
 import { FEEDBACK_SCENE_ID } from '../feedback';
@@ -32,7 +31,10 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     private readonly fileStorageService: FileStorageService,
   ) {
     super(8);
-    this.viewReplyBuilder = new ViewReplyBuilder(fileStorageService);
+    this.viewReplyBuilder = new ViewReplyBuilder(
+      databaseService,
+      fileStorageService,
+    );
   }
 
   protected async getDataset(): Promise<CategoryWithGames[]> {
@@ -47,17 +49,18 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   }
 
   protected async getDataMarkup(
+    ctx: SceneContext,
     data: CategoryWithGames[],
   ): Promise<ICategoryDataMarkup> {
-    const properties = await this.databaseService.getViewProperties(
-      ViewCode.CATEGORY_SELECTION_VIEW,
-    );
+    const { text, image } =
+      await this.viewReplyBuilder.getViewReplyMessageMarkup(
+        ctx,
+        ViewCode.CATEGORY_SELECTION_VIEW,
+      );
 
     return {
-      text:
-        properties.description ||
-        'Выбери приставку или отправь часть названия игры',
-      image: await this.getDataMarkupImage(properties.image),
+      text,
+      image,
       buttons: data.map((category) => [
         {
           text:
@@ -69,12 +72,6 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
         },
       ]),
     };
-  }
-
-  private async getDataMarkupImage(image: string) {
-    if (image) {
-      return this.fileStorageService.getObject(image);
-    }
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
@@ -96,10 +93,8 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
       return this.createEmptyListReplyMessage(ctx);
     }
 
-    const transforedText = injectUserVariables(ctx, text);
-
     if (!image) {
-      return ctx.reply(transforedText, commonOptions);
+      return ctx.reply(text, commonOptions);
     }
 
     return ctx.sendPhoto(
@@ -107,7 +102,7 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
         source: image,
       },
       {
-        caption: transforedText,
+        caption: text,
         ...commonOptions,
       },
     );
@@ -118,16 +113,15 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     dataMarkup: ICategoryDataMarkup,
   ): Promise<void> {
     const { text, image } = dataMarkup;
-    const transforedText = injectUserVariables(ctx, text);
     const commonOptions: ExtraEditMessageText = {
       parse_mode: 'HTML',
       reply_markup: markup,
     };
 
     if (!image) {
-      await ctx.editMessageText(transforedText, commonOptions);
+      await ctx.editMessageText(text, commonOptions);
     } else {
-      await ctx.editMessageCaption(transforedText, commonOptions);
+      await ctx.editMessageCaption(text, commonOptions);
     }
   }
 

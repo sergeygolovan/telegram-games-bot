@@ -124,7 +124,7 @@ export abstract class AbstractPaginatedListScene<T> {
    * @param ctx
    */
   protected async render(ctx: SceneContext) {
-    const dataMarkup = await this.getDataMarkup(this.paginatedData);
+    const dataMarkup = await this.getDataMarkup(ctx, this.paginatedData);
     const navButtonsMarkup = await this.getNavButtonsMarkup();
     let extraButtonsMarkup: InlineKeyboardButton[][] = [];
 
@@ -154,7 +154,10 @@ export abstract class AbstractPaginatedListScene<T> {
    * Метод получения разметки элементов списка
    * @param data
    */
-  protected abstract getDataMarkup(data: T[]): Promise<IDataMarkup>;
+  protected abstract getDataMarkup(
+    ctx: SceneContext,
+    data: T[],
+  ): Promise<IDataMarkup>;
 
   /**
    * Метод получения данных для формирования списка

@@ -1,32 +1,31 @@
-import { General } from '@prisma/client';
 import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
+import { DatabaseService } from 'src/database/database.service';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
+import { ViewCode } from 'src/types';
 import internal from 'stream';
 import { Context } from 'telegraf';
 import { Message } from 'telegraf/typings/core/types/typegram';
 import { ExtraReplyMessage } from 'telegraf/typings/telegram-types';
+import { IMessageContent } from '../scenes';
+import { General } from '@prisma/client';
 
 export class ViewReplyBuilder {
-  constructor(protected readonly fileStorageService: FileStorageService) {}
+  constructor(
+    protected readonly databaseService: DatabaseService,
+    protected readonly fileStorageService: FileStorageService,
+  ) {}
 
   public async createViewReplyMessage(
     ctx: Context,
-    properties: General,
+    viewCode: ViewCode,
     options: ExtraReplyMessage,
   ): Promise<Message> {
-    const { description, image } = properties;
-    const text = injectUserVariables(ctx, description);
-
-    let imageBuffer: internal.Readable = null;
+    const { text, image } = await this.getViewReplyMessageMarkup(ctx, viewCode);
 
     if (image) {
-      imageBuffer = await this.fileStorageService.getObject(image);
-    }
-
-    if (imageBuffer) {
       return ctx.sendPhoto(
         {
-          source: imageBuffer,
+          source: image,
         },
         {
           caption: text,
@@ -36,5 +35,26 @@ export class ViewReplyBuilder {
     }
 
     return ctx.reply(text, options);
+  }
+
+  public async getViewReplyMessageMarkup(
+    ctx: Context,
+    viewCode: ViewCode,
+    defaultValues: Partial<Omit<General, 'code'>> = {},
+  ): Promise<IMessageContent> {
+    const properties = await this.databaseService.getViewProperties(viewCode);
+    const text = injectUserVariables(
+      ctx,
+      defaultValues.description || properties.description,
+    );
+
+    const image = defaultValues.image || properties.image;
+    let imageBuffer: internal.Readable = null;
+
+    if (image) {
+      imageBuffer = await this.fileStorageService.getObject(image);
+    }
+
+    return { text, image: imageBuffer };
   }
 }

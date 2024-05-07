@@ -25,23 +25,23 @@ export class FeedbackScene extends ViewReplyBuilder {
   private messages: Message[] = [];
 
   constructor(
-    private readonly databaseService: DatabaseService,
+    protected readonly databaseService: DatabaseService,
     protected readonly fileStorageService: FileStorageService,
   ) {
-    super(fileStorageService);
+    super(databaseService, fileStorageService);
   }
 
   @SceneEnter()
   async enter(@Ctx() ctx: SceneContext) {
     this.messages = [];
 
-    const properties = await this.databaseService.getViewProperties(
+    const message = await this.createViewReplyMessage(
+      ctx,
       ViewCode.FEEDBACK_VIEW_BEFORE,
+      {
+        parse_mode: 'HTML',
+      },
     );
-
-    const message = await this.createViewReplyMessage(ctx, properties, {
-      parse_mode: 'HTML',
-    });
 
     this.messages.push(message);
   }
@@ -73,18 +73,18 @@ export class FeedbackScene extends ViewReplyBuilder {
         console.error(e);
       }
 
-      const properties = await this.databaseService.getViewProperties(
+      const message = await this.createViewReplyMessage(
+        ctx,
         ViewCode.FEEDBACK_VIEW_AFTER,
-      );
-
-      const message = await this.createViewReplyMessage(ctx, properties, {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [Markup.button.callback('В главное меню', 'return')],
-          ],
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [Markup.button.callback('В главное меню', 'return')],
+            ],
+          },
         },
-      });
+      );
 
       this.messages.push(message);
     }

@@ -1,7 +1,8 @@
-import internal from 'stream';
-import { IDataMarkup } from '../core';
+import { Category, Game } from '@prisma/client';
+import { IDataMarkup, IMessageContent } from '../core';
 
-export interface ISearchGameDataMarkup extends IDataMarkup {
-  text: string;
-  image: internal.Readable | null;
-}
+export type GameWithCategory = Game & {
+  category: Category;
+};
+
+export interface ISearchGameDataMarkup extends IDataMarkup, IMessageContent {}
