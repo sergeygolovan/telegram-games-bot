@@ -26,9 +26,20 @@ model Category {
 }
 
 model Game {
-  id         Int      @id @default(autoincrement())
-  name       String
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId Int
-  url        String
+  id          Int       @id @default(autoincrement())
+  name        String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  categoryId  Int
+  url         String
+  showDetails Boolean   @default(false)
+  releaseDate DateTime?
+  companyName String?
+  description String?
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  username  String
+  message   String
 }

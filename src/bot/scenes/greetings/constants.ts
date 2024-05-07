@@ -1,0 +1,1 @@
+export const GREETINGS_SCENE_ID = 'GREETINGS_SCENE';

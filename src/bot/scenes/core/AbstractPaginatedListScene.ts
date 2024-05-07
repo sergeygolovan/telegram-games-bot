@@ -53,7 +53,11 @@ export abstract class AbstractPaginatedListScene<T> {
   @SceneLeave()
   protected async leave(@Ctx() ctx: SceneContext) {
     if (this.replyMessage) {
-      await ctx.deleteMessage(this.replyMessage.message_id);
+      try {
+        await ctx.deleteMessage(this.replyMessage.message_id);
+      } catch (e) {
+        console.error(e);
+      }
       this.replyMessage = null;
     }
   }

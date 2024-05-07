@@ -13,7 +13,7 @@ export class FileStorageService implements OnModuleInit {
 
   async onModuleInit() {
     await ConfigModule.envVariablesLoaded;
-    this.configService.get('MINIO_SERVICE_BUCKET_NAME');
+    this.bucketName = this.configService.get('MINIO_SERVICE_BUCKET_NAME');
   }
 
   async getObject(

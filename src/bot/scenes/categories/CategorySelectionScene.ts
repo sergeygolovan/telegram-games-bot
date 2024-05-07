@@ -17,12 +17,22 @@ import {
 } from 'telegraf/typings/telegram-types';
 import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
 import { SEARCH_GAME_SCENE_ID } from '../search/constants';
+import { Markup } from 'telegraf';
+import { FEEDBACK_SCENE_ID } from '../feedback';
+import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
+import { FileStorageService } from 'src/file-storage/file-storage.service';
+import { ViewCode } from 'src/types';
 
 @Scene(CATEGORY_SELECTION_SCENE_ID)
 @Injectable()
 export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryWithGames> {
-  constructor(private readonly databaseService: DatabaseService) {
+  private viewReplyBuilder: ViewReplyBuilder;
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly fileStorageService: FileStorageService,
+  ) {
     super(8);
+    this.viewReplyBuilder = new ViewReplyBuilder(fileStorageService);
   }
 
   protected async getDataset(): Promise<CategoryWithGames[]> {
@@ -39,9 +49,15 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   protected async getDataMarkup(
     data: CategoryWithGames[],
   ): Promise<ICategoryDataMarkup> {
+    const properties = await this.databaseService.getViewProperties(
+      ViewCode.CATEGORY_SELECTION_VIEW,
+    );
+
     return {
-      text: 'Выбери приставку или отправь название игры и мы попробуем найти её в нашей базе :)',
-      image: null,
+      text:
+        properties.description ||
+        'Выбери приставку или отправь часть названия игры',
+      image: await this.getDataMarkupImage(properties.image),
       buttons: data.map((category) => [
         {
           text:
@@ -55,8 +71,14 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     };
   }
 
+  private async getDataMarkupImage(image: string) {
+    if (image) {
+      return this.fileStorageService.getObject(image);
+    }
+  }
+
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
-    return [];
+    return [[Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')]];
   }
 
   protected createReplyMessage(
@@ -121,6 +143,11 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     await ctx.scene.enter(GAME_SELECTION_SCENE_ID, {
       categoryId,
     });
+  }
+
+  @Action('nav_to_feedback')
+  async navToFeedback(@Ctx() ctx: SceneContext) {
+    await ctx.scene.enter(FEEDBACK_SCENE_ID);
   }
 
   @On('message')

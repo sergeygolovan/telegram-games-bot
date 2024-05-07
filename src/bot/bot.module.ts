@@ -5,6 +5,8 @@ import { BotService } from './bot.service';
 import { session } from 'telegraf';
 import { GameSelectionScene, CategorySelectionScene } from './scenes';
 import { SearchGameScene } from './scenes/search/SearchGameScene';
+import { GreetingsScene } from './scenes/greetings';
+import { FeedbackScene } from './scenes/feedback/FeedbackScene';
 
 @Module({
   imports: [
@@ -21,9 +23,11 @@ import { SearchGameScene } from './scenes/search/SearchGameScene';
   ],
   providers: [
     BotService,
+    GreetingsScene,
     CategorySelectionScene,
     GameSelectionScene,
     SearchGameScene,
+    FeedbackScene,
   ],
   exports: [BotService],
 })

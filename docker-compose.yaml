@@ -11,7 +11,7 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_SERVICE_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_SERVICE_ROOT_PASSWORD}
-      - MINIO_DEFAULT_BUCKETS=${MINIO_SERVICE_DEFAULT_BUCKET}
+      - MINIO_DEFAULT_BUCKETS=${MINIO_SERVICE_BUCKET_NAME}
     command: server /data -console-address ":9001"
   cloudbeaver:
     image: dbeaver/cloudbeaver:latest

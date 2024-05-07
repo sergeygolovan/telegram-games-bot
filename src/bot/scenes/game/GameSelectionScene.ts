@@ -22,8 +22,8 @@ import { ViewCode } from 'src/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
 
-@Scene(GAME_SELECTION_SCENE_ID)
 @Injectable()
+@Scene(GAME_SELECTION_SCENE_ID)
 export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   private categoryId: number;
   private viewReplyBuilder: ViewReplyBuilder;
@@ -34,6 +34,19 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   ) {
     super(8);
     this.viewReplyBuilder = new ViewReplyBuilder(fileStorageService);
+  }
+
+  protected async getDataset(ctx: SceneContext): Promise<Game[]> {
+    this.categoryId = Number(ctx.scene.session.state['categoryId']);
+
+    return this.databaseService.game.findMany({
+      where: {
+        categoryId: this.categoryId,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
   }
 
   protected async getDataMarkup(data: Game[]): Promise<IGameDataMarkup> {
@@ -152,19 +165,6 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
     return [[Markup.button.callback('Вернуться', 'return')]];
-  }
-
-  protected async getDataset(ctx: SceneContext): Promise<Game[]> {
-    this.categoryId = Number(ctx.scene.session.state['categoryId']);
-
-    return this.databaseService.game.findMany({
-      where: {
-        categoryId: this.categoryId,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
   }
 
   @Action('return')
