@@ -148,6 +148,10 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   async searchGame(@Ctx() ctx: SceneContext) {
     await ctx.scene.enter(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
+      prevScene: {
+        id: CATEGORY_SELECTION_SCENE_ID,
+        state: { ...ctx.scene.session.state },
+      },
     });
   }
 }

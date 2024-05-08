@@ -18,6 +18,7 @@ export class BotService implements OnModuleDestroy {
       ctx.session.username = ctx.from.username;
       ctx.session.user_id = ctx.from.id;
       ctx.session.chat_id = ctx.chat.id;
+      ctx.session.lastRequestDate = new Date();
       return next();
     });
   }

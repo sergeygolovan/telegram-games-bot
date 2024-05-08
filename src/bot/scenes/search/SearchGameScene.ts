@@ -1,25 +1,26 @@
-import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
-import Fuse from 'fuse.js';
-import { SEARCH_GAME_SCENE_ID } from './constants';
-import { DatabaseService } from 'src/database/database.service';
-import { SceneContext, SceneSessionData } from 'telegraf/typings/scenes';
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { Markup } from 'telegraf';
-import { AbstractPaginatedListScene } from '../core';
+import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
+import Fuse from 'fuse.js';
+import {
+  ExtraEditMessageText,
+  ExtraReplyMessage,
+} from 'telegraf/typings/telegram-types';
 import {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { GameWithCategory, ISearchGameDataMarkup } from './types';
-import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
 import { ViewCode } from 'src/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import {
-  ExtraEditMessageText,
-  ExtraReplyMessage,
-} from 'telegraf/typings/telegram-types';
+import { DatabaseService } from 'src/database/database.service';
+import { SEARCH_GAME_SCENE_ID } from './constants';
+import { SceneContext, SceneSessionData } from 'telegraf/typings/scenes';
+import { AbstractPaginatedListScene } from '../core';
+import { GameWithCategory, ISearchGameDataMarkup } from './types';
+import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
 
 @Scene(SEARCH_GAME_SCENE_ID)
 @Injectable()
@@ -38,15 +39,23 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
 
   protected async getDataset(ctx: SceneContext): Promise<GameWithCategory[]> {
     const query: string = (ctx.scene.state['query'] || '').trim();
+    const categoryId = ctx.scene.state['categoryId'];
 
     if (!query) {
       return [];
+    }
+
+    const whereOptions: Prisma.GameWhereInput = {};
+
+    if (categoryId) {
+      whereOptions.categoryId = categoryId;
     }
 
     const games = await this.databaseService.game.findMany({
       include: {
         category: true,
       },
+      where: whereOptions,
     });
 
     const fuse = new Fuse(games, {
@@ -85,7 +94,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
-    return [[Markup.button.callback('Вернуться к списку приставок', 'back')]];
+    return [[Markup.button.callback('Вернуться', 'back')]];
   }
 
   protected async createReplyMessage(
@@ -152,7 +161,11 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
 
   @Action('back')
   async returnToCategorySelection(@Ctx() ctx: SceneContext) {
-    await ctx.scene.enter(CATEGORY_SELECTION_SCENE_ID);
+    const prevScene = ctx.scene.state['prevScene'] || {};
+    await ctx.scene.enter(
+      prevScene.id || CATEGORY_SELECTION_SCENE_ID,
+      prevScene.state,
+    );
   }
 
   @On('message')

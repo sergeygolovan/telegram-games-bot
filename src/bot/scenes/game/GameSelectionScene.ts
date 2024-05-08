@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Game } from '@prisma/client';
-import { Action, Ctx, Scene } from 'nestjs-telegraf';
+import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
 import { DatabaseService } from 'src/database/database.service';
 import { SceneContext } from 'telegraf/typings/scenes';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
@@ -20,6 +20,7 @@ import {
 import { ViewCode } from 'src/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
+import { SEARCH_GAME_SCENE_ID } from '../search';
 
 @Injectable()
 @Scene(GAME_SELECTION_SCENE_ID)
@@ -167,5 +168,17 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   @Action('return')
   async returnToCategorySelection(@Ctx() ctx: SceneContext) {
     await ctx.scene.enter(CATEGORY_SELECTION_SCENE_ID);
+  }
+
+  @On('message')
+  async searchGame(@Ctx() ctx: SceneContext) {
+    await ctx.scene.enter(SEARCH_GAME_SCENE_ID, {
+      query: (ctx.message as any).text,
+      categoryId: this.categoryId,
+      prevScene: {
+        id: GAME_SELECTION_SCENE_ID,
+        state: { ...ctx.scene.session.state },
+      },
+    });
   }
 }
