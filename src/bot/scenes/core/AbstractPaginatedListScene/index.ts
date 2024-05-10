@@ -1,2 +1,2 @@
 export * from './AbstractPaginatedListScene';
-export * from './AbstractHierarchyTreeScene';
+export * from './types';

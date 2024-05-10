@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
 import { DatabaseService } from 'src/database/database.service';
-import { SceneContext } from 'telegraf/typings/scenes';
 import { GAME_SELECTION_SCENE_ID } from '../game';
 import { CATEGORY_SELECTION_SCENE_ID } from './constants';
-import { AbstractPaginatedListScene } from '../core';
+import { AbstractPaginatedListScene } from '../core/AbstractPaginatedListScene';
 import {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { CategoryWithGames, ICategoryDataMarkup } from './types';
+import {
+  CategorySelectionSceneContext,
+  CategoryWithGames,
+  ICategoryDataMarkup,
+} from './types';
 import {
   ExtraEditMessageText,
   ExtraReplyMessage,
@@ -20,12 +23,14 @@ import { Markup } from 'telegraf';
 import { FEEDBACK_SCENE_ID } from '../feedback';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import { ViewCode } from 'src/types';
+import { ViewCode } from 'src/bot/types';
+import { SearchGameSceneState } from '../search';
 
 @Scene(CATEGORY_SELECTION_SCENE_ID)
 @Injectable()
 export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryWithGames> {
   private viewReplyBuilder: ViewReplyBuilder;
+
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly fileStorageService: FileStorageService,
@@ -49,7 +54,7 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   }
 
   protected async getDataMarkup(
-    ctx: SceneContext,
+    ctx: CategorySelectionSceneContext,
     data: CategoryWithGames[],
   ): Promise<ICategoryDataMarkup> {
     const { text, image } =
@@ -79,7 +84,7 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   }
 
   protected createReplyMessage(
-    ctx: SceneContext,
+    ctx: CategorySelectionSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: ICategoryDataMarkup,
   ): Promise<Message> {
@@ -108,7 +113,7 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     );
   }
   protected async editReplyMessage(
-    ctx: SceneContext,
+    ctx: CategorySelectionSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: ICategoryDataMarkup,
   ): Promise<void> {
@@ -125,14 +130,16 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     }
   }
 
-  private async createEmptyListReplyMessage(ctx: SceneContext) {
+  private async createEmptyListReplyMessage(
+    ctx: CategorySelectionSceneContext,
+  ) {
     return ctx.reply(
       'Пока что список приставок пуст 😱.\nВозможно, произошла внутренняя ошибка. Вскоре мы все исправим!',
     );
   }
 
   @Action(/[\d]+/)
-  async showGamesFor(@Ctx() ctx: SceneContext) {
+  async showGamesFor(@Ctx() ctx: CategorySelectionSceneContext) {
     const categoryId = Number((ctx as any).match[0]);
     await ctx.scene.enter(GAME_SELECTION_SCENE_ID, {
       categoryId,
@@ -140,13 +147,13 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   }
 
   @Action('nav_to_feedback')
-  async navToFeedback(@Ctx() ctx: SceneContext) {
+  async navToFeedback(@Ctx() ctx: CategorySelectionSceneContext) {
     await ctx.scene.enter(FEEDBACK_SCENE_ID);
   }
 
   @On('message')
-  async searchGame(@Ctx() ctx: SceneContext) {
-    await ctx.scene.enter(SEARCH_GAME_SCENE_ID, {
+  async searchGame(@Ctx() ctx: CategorySelectionSceneContext) {
+    await ctx.scene.enter<SearchGameSceneState>(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
       prevScene: {
         id: CATEGORY_SELECTION_SCENE_ID,

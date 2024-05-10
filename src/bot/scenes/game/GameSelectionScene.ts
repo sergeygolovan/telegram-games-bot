@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Game } from '@prisma/client';
 import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
 import { DatabaseService } from 'src/database/database.service';
-import { SceneContext } from 'telegraf/typings/scenes';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
-import { AbstractPaginatedListScene } from '../core';
+import { AbstractPaginatedListScene } from '../core/AbstractPaginatedListScene';
 import {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
@@ -12,20 +11,19 @@ import {
 } from 'telegraf/typings/core/types/typegram';
 import { Markup } from 'telegraf';
 import { GAME_SELECTION_SCENE_ID } from './constants';
-import { IGameDataMarkup } from './types';
+import { GameSelectionSceneContext, IGameDataMarkup } from './types';
 import {
   ExtraEditMessageText,
   ExtraReplyMessage,
 } from 'telegraf/typings/telegram-types';
-import { ViewCode } from 'src/types';
+import { BotSceneContext, ViewCode } from 'src/bot/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import { SEARCH_GAME_SCENE_ID } from '../search';
+import { SEARCH_GAME_SCENE_ID, SearchGameSceneState } from '../search';
 
 @Injectable()
 @Scene(GAME_SELECTION_SCENE_ID)
 export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
-  private categoryId: number;
   private viewReplyBuilder: ViewReplyBuilder;
 
   constructor(
@@ -39,12 +37,12 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
     );
   }
 
-  protected async getDataset(ctx: SceneContext): Promise<Game[]> {
-    this.categoryId = Number(ctx.scene.session.state['categoryId']);
+  protected async getDataset(ctx: GameSelectionSceneContext): Promise<Game[]> {
+    const categoryId = ctx.scene.state.categoryId;
 
     return this.databaseService.game.findMany({
       where: {
-        categoryId: this.categoryId,
+        categoryId,
       },
       orderBy: {
         name: 'asc',
@@ -53,12 +51,13 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   }
 
   protected async getDataMarkup(
-    ctx: SceneContext,
+    ctx: GameSelectionSceneContext,
     data: Game[],
   ): Promise<IGameDataMarkup> {
+    const categoryId = ctx.scene.state.categoryId;
     const { description, image } =
       await this.databaseService.category.findUniqueOrThrow({
-        where: { id: this.categoryId },
+        where: { id: categoryId },
       });
 
     const markup = await this.viewReplyBuilder.getViewReplyMessageMarkup(
@@ -100,7 +99,7 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   }
 
   protected async createReplyMessage(
-    ctx: SceneContext,
+    ctx: GameSelectionSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: IGameDataMarkup,
   ): Promise<Message> {
@@ -130,7 +129,7 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   }
 
   protected async editReplyMessage(
-    ctx: SceneContext,
+    ctx: GameSelectionSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: IGameDataMarkup,
   ) {
@@ -148,7 +147,7 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   }
 
   private async createEmptyListReplyMessage(
-    ctx: SceneContext,
+    ctx: GameSelectionSceneContext,
     markup: InlineKeyboardMarkup,
   ): Promise<Message> {
     return this.viewReplyBuilder.createViewReplyMessage(
@@ -166,15 +165,16 @@ export class GameSelectionScene extends AbstractPaginatedListScene<Game> {
   }
 
   @Action('return')
-  async returnToCategorySelection(@Ctx() ctx: SceneContext) {
+  async returnToCategorySelection(@Ctx() ctx: BotSceneContext) {
     await ctx.scene.enter(CATEGORY_SELECTION_SCENE_ID);
   }
 
   @On('message')
-  async searchGame(@Ctx() ctx: SceneContext) {
-    await ctx.scene.enter(SEARCH_GAME_SCENE_ID, {
+  async searchGame(@Ctx() ctx: GameSelectionSceneContext) {
+    const categoryId = ctx.scene.state.categoryId;
+    await ctx.scene.enter<SearchGameSceneState>(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
-      categoryId: this.categoryId,
+      categoryId,
       prevScene: {
         id: GAME_SELECTION_SCENE_ID,
         state: { ...ctx.scene.session.state },

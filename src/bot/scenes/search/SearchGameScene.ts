@@ -12,14 +12,17 @@ import {
   InlineKeyboardMarkup,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { ViewCode } from 'src/types';
+import { ViewCode } from 'src/bot/types';
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SEARCH_GAME_SCENE_ID } from './constants';
-import { SceneContext, SceneSessionData } from 'telegraf/typings/scenes';
 import { AbstractPaginatedListScene } from '../core';
-import { GameWithCategory, ISearchGameDataMarkup } from './types';
+import {
+  GameWithCategory,
+  ISearchGameDataMarkup,
+  SearchGameSceneContext,
+} from './types';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
 
 @Scene(SEARCH_GAME_SCENE_ID)
@@ -37,9 +40,11 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
     );
   }
 
-  protected async getDataset(ctx: SceneContext): Promise<GameWithCategory[]> {
-    const query: string = (ctx.scene.state['query'] || '').trim();
-    const categoryId = ctx.scene.state['categoryId'];
+  protected async getDataset(
+    ctx: SearchGameSceneContext,
+  ): Promise<GameWithCategory[]> {
+    const query: string = (ctx.scene.state.query || '').trim();
+    const categoryId = ctx.scene.state.categoryId;
 
     if (!query) {
       return [];
@@ -71,7 +76,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   protected async getDataMarkup(
-    ctx: SceneContext,
+    ctx: SearchGameSceneContext,
     data: GameWithCategory[],
   ): Promise<ISearchGameDataMarkup> {
     const markup = await this.viewReplyBuilder.getViewReplyMessageMarkup(
@@ -98,7 +103,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   protected async createReplyMessage(
-    ctx: SceneContext<SceneSessionData>,
+    ctx: SearchGameSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: ISearchGameDataMarkup,
   ): Promise<Message> {
@@ -128,7 +133,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   protected async editReplyMessage(
-    ctx: SceneContext<SceneSessionData>,
+    ctx: SearchGameSceneContext,
     markup: InlineKeyboardMarkup,
     dataMarkup: ISearchGameDataMarkup,
   ): Promise<void> {
@@ -146,7 +151,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   private async createEmptyListReplyMessage(
-    ctx: SceneContext,
+    ctx: SearchGameSceneContext,
     markup: InlineKeyboardMarkup,
   ): Promise<Message> {
     return this.viewReplyBuilder.createViewReplyMessage(
@@ -160,17 +165,17 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   @Action('back')
-  async returnToCategorySelection(@Ctx() ctx: SceneContext) {
-    const prevScene = ctx.scene.state['prevScene'] || {};
-    await ctx.scene.enter(
-      prevScene.id || CATEGORY_SELECTION_SCENE_ID,
-      prevScene.state,
-    );
+  async returnToCategorySelection(@Ctx() ctx: SearchGameSceneContext) {
+    const prevScene = ctx.scene.state.prevScene || {
+      id: CATEGORY_SELECTION_SCENE_ID,
+      state: {},
+    };
+    await ctx.scene.enter(prevScene.id, prevScene.state);
   }
 
   @On('message')
-  async reenter(@Ctx() ctx: SceneContext) {
-    ctx.scene.state['query'] = (ctx.message as any).text;
+  async reenter(@Ctx() ctx: SearchGameSceneContext) {
+    ctx.scene.state.query = (ctx.message as any).text;
     await ctx.scene.reenter();
   }
 }

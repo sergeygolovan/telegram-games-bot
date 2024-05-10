@@ -17,11 +17,14 @@ model General {
 }
 
 model Category {
-  id               Int     @id @default(autoincrement())
+  id               Int        @id @default(autoincrement())
   name             String
   description      String?
   image            String?
-  isWorkInProgress Boolean @default(true)
+  isWorkInProgress Boolean    @default(true)
+  parentId         Int?
+  parent           Category?  @relation("CategoryHier", fields: [parentId], references: [id])
+  children         Category[] @relation("CategoryHier")
   games            Game[]
 }
 

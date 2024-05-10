@@ -8,6 +8,7 @@ import { GreetingsScene } from './scenes/greetings';
 import { FeedbackScene } from './scenes/feedback/FeedbackScene';
 import { Context, session } from 'telegraf';
 import { SQLite } from '@telegraf/session/sqlite';
+import { BotSceneSession } from './types';
 
 @Module({
   imports: [
@@ -23,9 +24,14 @@ import { SQLite } from '@telegraf/session/sqlite';
           middlewares: [
             session({
               store,
-              defaultSession: (ctx: Context) => ({
+              defaultSession: (ctx: Context): BotSceneSession => ({
                 username: ctx.from.username,
                 count: 0,
+                userId: ctx.from.id,
+                chatId: ctx.chat.id,
+                lastRequestDate: new Date(),
+                sentMessageIds: [],
+                state: {},
               }),
             }),
           ],
