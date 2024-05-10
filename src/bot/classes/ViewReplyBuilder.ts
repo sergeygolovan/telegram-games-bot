@@ -1,7 +1,7 @@
 import { injectUserVariables } from 'src/bot/utils/injectUserVariables';
 import { DatabaseService } from 'src/database/database.service';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import { ViewCode } from 'src/types';
+import { ViewCode } from 'src/bot/types';
 import internal from 'stream';
 import { Context } from 'telegraf';
 import { Message } from 'telegraf/typings/core/types/typegram';

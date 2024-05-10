@@ -31,8 +31,8 @@ model Category {
 model Game {
   id          Int       @id @default(autoincrement())
   name        String
-  category    Category  @relation(fields: [categoryId], references: [id])
-  categoryId  Int
+  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
   url         String
   showDetails Boolean   @default(false)
   releaseDate DateTime?

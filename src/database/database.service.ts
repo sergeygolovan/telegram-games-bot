@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { General, PrismaClient } from '@prisma/client';
-import { ViewCode } from 'src/types';
+import { ViewCode } from 'src/bot/types';
 
 @Injectable()
 export class DatabaseService

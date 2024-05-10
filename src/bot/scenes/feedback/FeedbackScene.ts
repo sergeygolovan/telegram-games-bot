@@ -11,9 +11,8 @@ import {
 import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { DatabaseService } from 'src/database/database.service';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
-import { ViewCode } from 'src/types';
+import { BotSceneContext, ViewCode } from 'src/bot/types';
 import { Markup } from 'telegraf';
-import { SceneContext } from 'telegraf/typings/scenes';
 import { GREETINGS_SCENE_ID } from '../greetings';
 import { Message } from 'telegraf/typings/core/types/typegram';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
@@ -32,7 +31,7 @@ export class FeedbackScene extends ViewReplyBuilder {
   }
 
   @SceneEnter()
-  async enter(@Ctx() ctx: SceneContext) {
+  async enter(@Ctx() ctx: BotSceneContext) {
     this.messages = [];
 
     const message = await this.createViewReplyMessage(
@@ -47,7 +46,7 @@ export class FeedbackScene extends ViewReplyBuilder {
   }
 
   @SceneLeave()
-  async leave(@Ctx() ctx: SceneContext) {
+  async leave(@Ctx() ctx: BotSceneContext) {
     try {
       await ctx.deleteMessages(
         this.messages.map(({ message_id }) => message_id),
@@ -58,7 +57,7 @@ export class FeedbackScene extends ViewReplyBuilder {
   }
 
   @On('message')
-  async handleFeedbackMessage(@Ctx() ctx: SceneContext) {
+  async handleFeedbackMessage(@Ctx() ctx: BotSceneContext) {
     const text = ((ctx.message as any).text || '').trim();
 
     if (text) {
@@ -80,7 +79,7 @@ export class FeedbackScene extends ViewReplyBuilder {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [Markup.button.callback('В главное меню', 'return')],
+              [Markup.button.callback('⬅️ В главное меню', 'return')],
             ],
           },
         },
@@ -91,12 +90,12 @@ export class FeedbackScene extends ViewReplyBuilder {
   }
 
   @Action('return')
-  async returnToCategorySelection(@Ctx() ctx: SceneContext) {
+  async returnToCategorySelection(@Ctx() ctx: BotSceneContext) {
     await ctx.scene.enter(CATEGORY_SELECTION_SCENE_ID);
   }
 
   @Command('start')
-  async exit(@Ctx() ctx: SceneContext) {
+  async exit(@Ctx() ctx: BotSceneContext) {
     await ctx.scene.enter(GREETINGS_SCENE_ID);
   }
 }

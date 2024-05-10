@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Action, Ctx, On, Scene } from 'nestjs-telegraf';
 import { DatabaseService } from 'src/database/database.service';
-import { GAME_SELECTION_SCENE_ID } from '../game';
 import { CATEGORY_SELECTION_SCENE_ID } from './constants';
-import { AbstractPaginatedListScene } from '../core/AbstractPaginatedListScene';
 import {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
@@ -11,8 +9,9 @@ import {
 } from 'telegraf/typings/core/types/typegram';
 import {
   CategorySelectionSceneContext,
-  CategoryWithGames,
   ICategoryDataMarkup,
+  CategoryWithGames,
+  CategorySelectionSceneHierNode,
 } from './types';
 import {
   ExtraEditMessageText,
@@ -25,11 +24,21 @@ import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
 import { ViewCode } from 'src/bot/types';
 import { SearchGameSceneState } from '../search';
+import { AbstractHierarchyTreeScene } from '../core';
+import { Category, Game } from '@prisma/client';
+import {
+  HierarchyTreeLeafNode,
+  HierarchyTreeParentNode,
+} from '../core/AbstractHierarchyTreeScene/types';
 
 @Scene(CATEGORY_SELECTION_SCENE_ID)
 @Injectable()
-export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryWithGames> {
+export class CategorySelectionScene extends AbstractHierarchyTreeScene<
+  CategoryWithGames,
+  Game
+> {
   private viewReplyBuilder: ViewReplyBuilder;
+  private selectedCategory: Category;
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -42,40 +51,136 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
     );
   }
 
-  protected async getDataset(): Promise<CategoryWithGames[]> {
-    return this.databaseService.category.findMany({
+  protected async getDataset(
+    ctx: CategorySelectionSceneContext,
+  ): Promise<CategorySelectionSceneHierNode[]> {
+    const currentNodeId = ctx.scene.state.nodeId;
+
+    if (currentNodeId) {
+      return this.getSelectedNodeDataset(ctx);
+    }
+    return this.getRootNodeDataset();
+  }
+
+  private async getRootNodeDataset(): Promise<
+    CategorySelectionSceneHierNode[]
+  > {
+    this.selectedCategory = null;
+    const categories = await this.databaseService.category.findMany({
       include: {
         games: true,
+      },
+      where: {
+        parentId: null,
       },
       orderBy: {
         name: 'asc',
       },
     });
+    const games = await this.databaseService.game.findMany({
+      where: {
+        categoryId: null,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+    const categoryNodes: HierarchyTreeParentNode<CategoryWithGames>[] =
+      categories.map((category) => ({
+        type: 'parent',
+        id: category.id,
+        parentId: null,
+        data: category,
+      }));
+    const gameNodes: HierarchyTreeLeafNode<Game>[] = games.map((game) => ({
+      type: 'leaf',
+      id: game.id,
+      parentId: null,
+      data: game,
+    }));
+
+    return [...categoryNodes, ...gameNodes];
+  }
+
+  private async getSelectedNodeDataset(
+    ctx: CategorySelectionSceneContext,
+  ): Promise<CategorySelectionSceneHierNode[]> {
+    const currentNodeId = ctx.scene.state.nodeId;
+    const currentNode = await this.databaseService.category.findUnique({
+      include: {
+        games: {
+          orderBy: {
+            name: 'asc',
+          },
+        },
+        children: {
+          include: {
+            games: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+        },
+      },
+      where: {
+        id: currentNodeId,
+      },
+    });
+
+    this.selectedCategory = currentNode;
+
+    const categoryNodes: HierarchyTreeParentNode<CategoryWithGames>[] =
+      currentNode.children.map((category) => ({
+        type: 'parent',
+        id: category.id,
+        parentId: currentNodeId,
+        data: category,
+      }));
+    const gameNodes: HierarchyTreeLeafNode<Game>[] = currentNode.games.map(
+      (game) => ({
+        type: 'leaf',
+        id: game.id,
+        parentId: currentNodeId,
+        data: game,
+      }),
+    );
+
+    return [...categoryNodes, ...gameNodes];
+  }
+
+  protected getParentNodeButtonMarkup(
+    category: CategoryWithGames,
+  ): InlineKeyboardButton {
+    const workInProgressText = ' (в разработке)';
+    const gamesCount = ` (${category.games.length} игр)`;
+    return Markup.button.callback(
+      `📂 ${category.name}${category.isWorkInProgress ? workInProgressText : gamesCount}`,
+      `${category.id}`,
+    );
+  }
+
+  protected getLeafNodeButtonMarkup(game: Game): InlineKeyboardButton {
+    return Markup.button.url(`🎮 ${game.name}`, game.url);
   }
 
   protected async getDataMarkup(
     ctx: CategorySelectionSceneContext,
-    data: CategoryWithGames[],
+    data: CategorySelectionSceneHierNode[],
   ): Promise<ICategoryDataMarkup> {
     const { text, image } =
       await this.viewReplyBuilder.getViewReplyMessageMarkup(
         ctx,
         ViewCode.CATEGORY_SELECTION_VIEW,
+        {
+          description: this.selectedCategory?.description,
+          image: this.selectedCategory?.image,
+        },
       );
 
     return {
       text,
       image,
-      buttons: data.map((category) => [
-        {
-          text:
-            category.name +
-            (category.isWorkInProgress
-              ? ' (в разработке)'
-              : ` (${category.games.length} игр)`),
-          callback_data: `${category.id}`,
-        },
-      ]),
+      buttons: this.getDataMarkupButtons(ctx, data),
     };
   }
 
@@ -139,11 +244,11 @@ export class CategorySelectionScene extends AbstractPaginatedListScene<CategoryW
   }
 
   @Action(/[\d]+/)
-  async showGamesFor(@Ctx() ctx: CategorySelectionSceneContext) {
+  async openCategory(@Ctx() ctx: CategorySelectionSceneContext) {
     const categoryId = Number((ctx as any).match[0]);
-    await ctx.scene.enter(GAME_SELECTION_SCENE_ID, {
-      categoryId,
-    });
+    ctx.scene.state.parentNodeId = ctx.scene.state.nodeId;
+    ctx.scene.state.nodeId = categoryId;
+    await ctx.scene.reenter();
   }
 
   @Action('nav_to_feedback')
