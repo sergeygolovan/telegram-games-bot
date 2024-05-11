@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 
 # устанавливаем указанные зависимости NPM на этапе установки образа
 RUN npm install --legacy-peer-deps
+RUN npm install -g forever
 
 # после установки копируем все файлы проекта
 COPY ./.env ./

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BotService } from './bot.service';
-import { GameSelectionScene, CategorySelectionScene } from './scenes';
+import { CategorySelectionScene } from './scenes';
 import { SearchGameScene } from './scenes/search/SearchGameScene';
 import { GreetingsScene } from './scenes/greetings';
 import { FeedbackScene } from './scenes/feedback/FeedbackScene';
@@ -43,7 +43,6 @@ import { BotSceneSession } from './types';
     BotService,
     GreetingsScene,
     CategorySelectionScene,
-    GameSelectionScene,
     SearchGameScene,
     FeedbackScene,
   ],

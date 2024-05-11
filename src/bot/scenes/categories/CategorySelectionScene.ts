@@ -12,6 +12,7 @@ import {
   ICategoryDataMarkup,
   CategoryWithGames,
   CategorySelectionSceneHierNode,
+  CategoryHierWithGames,
 } from './types';
 import {
   ExtraEditMessageText,
@@ -25,11 +26,8 @@ import { FileStorageService } from 'src/file-storage/file-storage.service';
 import { ViewCode } from 'src/bot/types';
 import { SearchGameSceneState } from '../search';
 import { AbstractHierarchyTreeScene } from '../core';
-import { Category, Game } from '@prisma/client';
-import {
-  HierarchyTreeLeafNode,
-  HierarchyTreeParentNode,
-} from '../core/AbstractHierarchyTreeScene/types';
+import { Game } from '@prisma/client';
+import { HierDatasetStructure } from '../core/AbstractHierarchyTreeScene/types';
 
 @Scene(CATEGORY_SELECTION_SCENE_ID)
 @Injectable()
@@ -38,7 +36,7 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
   Game
 > {
   private viewReplyBuilder: ViewReplyBuilder;
-  private selectedCategory: Category;
+  private selectedCategory: CategoryHierWithGames;
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -51,19 +49,8 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
     );
   }
 
-  protected async getDataset(
-    ctx: CategorySelectionSceneContext,
-  ): Promise<CategorySelectionSceneHierNode[]> {
-    const currentNodeId = ctx.scene.state.nodeId;
-
-    if (currentNodeId) {
-      return this.getSelectedNodeDataset(ctx);
-    }
-    return this.getRootNodeDataset();
-  }
-
-  private async getRootNodeDataset(): Promise<
-    CategorySelectionSceneHierNode[]
+  protected async getRootDatasetStructure(): Promise<
+    HierDatasetStructure<CategoryWithGames, Game>
   > {
     this.selectedCategory = null;
     const categories = await this.databaseService.category.findMany({
@@ -85,28 +72,18 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
         name: 'asc',
       },
     });
-    const categoryNodes: HierarchyTreeParentNode<CategoryWithGames>[] =
-      categories.map((category) => ({
-        type: 'parent',
-        id: category.id,
-        parentId: null,
-        data: category,
-      }));
-    const gameNodes: HierarchyTreeLeafNode<Game>[] = games.map((game) => ({
-      type: 'leaf',
-      id: game.id,
-      parentId: null,
-      data: game,
-    }));
 
-    return [...categoryNodes, ...gameNodes];
+    return {
+      parents: categories,
+      leafs: games,
+    };
   }
 
-  private async getSelectedNodeDataset(
+  protected async getNodeDatasetStructure(
     ctx: CategorySelectionSceneContext,
-  ): Promise<CategorySelectionSceneHierNode[]> {
+  ): Promise<HierDatasetStructure> {
     const currentNodeId = ctx.scene.state.nodeId;
-    const currentNode = await this.databaseService.category.findUnique({
+    this.selectedCategory = await this.databaseService.category.findUnique({
       include: {
         games: {
           orderBy: {
@@ -127,25 +104,10 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
       },
     });
 
-    this.selectedCategory = currentNode;
-
-    const categoryNodes: HierarchyTreeParentNode<CategoryWithGames>[] =
-      currentNode.children.map((category) => ({
-        type: 'parent',
-        id: category.id,
-        parentId: currentNodeId,
-        data: category,
-      }));
-    const gameNodes: HierarchyTreeLeafNode<Game>[] = currentNode.games.map(
-      (game) => ({
-        type: 'leaf',
-        id: game.id,
-        parentId: currentNodeId,
-        data: game,
-      }),
-    );
-
-    return [...categoryNodes, ...gameNodes];
+    return {
+      parents: this.selectedCategory.children,
+      leafs: this.selectedCategory.games,
+    };
   }
 
   protected getParentNodeButtonMarkup(
@@ -243,14 +205,6 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
     );
   }
 
-  @Action(/[\d]+/)
-  async openCategory(@Ctx() ctx: CategorySelectionSceneContext) {
-    const categoryId = Number((ctx as any).match[0]);
-    ctx.scene.state.parentNodeId = ctx.scene.state.nodeId;
-    ctx.scene.state.nodeId = categoryId;
-    await ctx.scene.reenter();
-  }
-
   @Action('nav_to_feedback')
   async navToFeedback(@Ctx() ctx: CategorySelectionSceneContext) {
     await ctx.scene.enter(FEEDBACK_SCENE_ID);
@@ -260,6 +214,7 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
   async searchGame(@Ctx() ctx: CategorySelectionSceneContext) {
     await ctx.scene.enter<SearchGameSceneState>(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
+      categoryId: this.selectedCategory?.id || null,
       prevScene: {
         id: CATEGORY_SELECTION_SCENE_ID,
         state: { ...ctx.scene.session.state },

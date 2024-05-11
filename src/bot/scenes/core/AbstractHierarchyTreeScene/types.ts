@@ -1,3 +1,6 @@
+export type ObjectWithId<T = number> = {
+  id: T;
+};
 export interface HierarchyTreeNodeBase<T extends object = any> {
   id: number;
   parentId?: number;
@@ -22,3 +25,11 @@ export interface HierarchyTreeSceneState {
   parentNodeId: number | null;
   nodeId: number | null;
 }
+
+export type HierDatasetStructure<
+  P extends object = any,
+  L extends object = any,
+> = {
+  parents: P[];
+  leafs: L[];
+};

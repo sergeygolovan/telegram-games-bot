@@ -7,6 +7,7 @@ import {
 } from 'telegraf/typings/core/types/typegram';
 import { IDataMarkup } from './types';
 import { BotSceneContext } from 'src/bot/types';
+import { Logger } from '@nestjs/common';
 
 /**
  * Базовый класс сцены для отрисовки inline-меню с возможностью пагинации
@@ -18,6 +19,7 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   protected data: T[] = [];
   protected paginatedData: T[];
   protected replyMessage: Message = null;
+  protected logger = new Logger(AbstractPaginatedListScene.name);
 
   constructor(
     protected readonly sceneId,
@@ -25,10 +27,25 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   ) {}
 
   /**
+   * Обработчик входа в сцену
+   * @param ctx
+   */
+  @SceneEnter()
+  protected async enter(@Ctx() ctx: BotSceneContext<S>) {
+    this.logger.debug(
+      `[${ctx.from.username}] enter scene with state ${JSON.stringify(ctx.scene.state)}`,
+    );
+    this.data = await this.getDataset(ctx);
+
+    await this.initialize(ctx);
+  }
+
+  /**
    * Метод начальной инициализации сцены
    * @param ctx
    */
   protected async initialize(ctx: BotSceneContext<S>) {
+    this.logger.debug(`[${ctx.from.username}] initialize scene`);
     this.totalCount = this.data.length;
     this.pageNumber = 1;
     this.pageCount = Math.ceil(this.totalCount / this.pageSize);
@@ -36,17 +53,6 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
     this.replyMessage = null;
 
     await this.render(ctx);
-  }
-
-  /**
-   * Обработчик входа в сцену
-   * @param ctx
-   */
-  @SceneEnter()
-  protected async enter(@Ctx() ctx: BotSceneContext<S>) {
-    this.data = await this.getDataset(ctx);
-
-    await this.initialize(ctx);
   }
 
   /**
@@ -131,6 +137,7 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    * @param ctx
    */
   protected async render(ctx: BotSceneContext<S>) {
+    this.logger.debug(`[${ctx.from.username}] render scene`);
     const dataMarkup = await this.getDataMarkup(ctx, this.paginatedData);
     const navButtonsMarkup = await this.getNavButtonsMarkup(ctx);
     let extraButtonsMarkup: InlineKeyboardButton[][] = [];
