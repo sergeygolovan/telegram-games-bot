@@ -40,7 +40,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
     );
   }
 
-  protected async getDataset(
+  protected async fetchDataset(
     ctx: SearchGameSceneContext,
   ): Promise<GameWithCategory[]> {
     const query: string = (ctx.scene.state.query || '').trim();
@@ -165,7 +165,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
   }
 
   @Action('back')
-  async returnToCategorySelection(@Ctx() ctx: SearchGameSceneContext) {
+  async navBackToPreviousScene(@Ctx() ctx: SearchGameSceneContext) {
     const prevScene = ctx.scene.state.prevScene || {
       id: CATEGORY_SELECTION_SCENE_ID,
       state: {},

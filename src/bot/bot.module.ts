@@ -9,6 +9,7 @@ import { FeedbackScene } from './scenes/feedback/FeedbackScene';
 import { Context, session } from 'telegraf';
 import { SQLite } from '@telegraf/session/sqlite';
 import { BotSceneSession } from './types';
+import { DonationsScene } from './scenes/donations';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { BotSceneSession } from './types';
                 userId: ctx.from.id,
                 chatId: ctx.chat.id,
                 lastRequestDate: new Date(),
+                sessionsCount: 0,
                 sentMessageIds: [],
                 state: {},
               }),
@@ -45,6 +47,7 @@ import { BotSceneSession } from './types';
     CategorySelectionScene,
     SearchGameScene,
     FeedbackScene,
+    DonationsScene,
   ],
   exports: [BotService],
 })

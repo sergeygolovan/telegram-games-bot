@@ -16,9 +16,9 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   protected totalCount = 0;
   protected pageNumber = 1;
   protected pageCount = 1;
-  protected data: T[] = [];
-  protected paginatedData: T[];
-  protected replyMessage: Message = null;
+  private data: T[] = [];
+  private paginatedData: T[];
+  private replyMessage: Message = null;
   protected logger = new Logger(AbstractPaginatedListScene.name);
 
   constructor(
@@ -35,8 +35,6 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
     this.logger.debug(
       `[${ctx.from.username}] enter scene with state ${JSON.stringify(ctx.scene.state)}`,
     );
-    this.data = await this.getDataset(ctx);
-
     await this.initialize(ctx);
   }
 
@@ -46,6 +44,9 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    */
   protected async initialize(ctx: BotSceneContext<S>) {
     this.logger.debug(`[${ctx.from.username}] initialize scene`);
+
+    this.data = await this.fetchDataset(ctx);
+
     this.totalCount = this.data.length;
     this.pageNumber = 1;
     this.pageCount = Math.ceil(this.totalCount / this.pageSize);
@@ -177,7 +178,7 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    * Метод получения данных для формирования списка
    * @param ctx
    */
-  protected abstract getDataset(ctx: BotSceneContext<S>): Promise<T[]>;
+  protected abstract fetchDataset(ctx: BotSceneContext<S>): Promise<T[]>;
 
   /**
    * Опциональный метод получения разметки дополнительных элементов списка

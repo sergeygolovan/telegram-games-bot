@@ -19,5 +19,8 @@ COPY ./dist ./dist
 # инициализируем клиент prisma
 RUN npx prisma generate
 
+# применяем миграции
+RUN npx prisma migrate deploy
+
 # запускаем основной скрипт в момент запуска контейнера
 CMD npm start

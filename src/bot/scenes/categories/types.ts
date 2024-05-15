@@ -5,9 +5,9 @@ import {
 } from '../core/AbstractPaginatedListScene';
 import { BotSceneContext } from 'src/bot/types';
 import {
-  HierarchyTreeNode,
-  HierarchyTreeSceneState,
-} from '../core/AbstractHierarchyTreeScene/types';
+  FolderTreeNode,
+  FolderTreeSceneState,
+} from '../core/AbstractFolderTreeScene/types';
 
 export interface ICategoryDataMarkup extends IDataMarkup, IMessageContent {}
 
@@ -19,12 +19,12 @@ export type CategoryHierWithGames = CategoryWithGames & {
   children: Category[];
 };
 
-export type CategorySelectionSceneHierNode = HierarchyTreeNode<
+export type CategorySelectionSceneHierNode = FolderTreeNode<
   CategoryWithGames,
   Game
 >;
 
-export type CategorySelectionSceneState = HierarchyTreeSceneState;
+export type CategorySelectionSceneState = FolderTreeSceneState;
 
 export type CategorySelectionSceneContext =
   BotSceneContext<CategorySelectionSceneState>;

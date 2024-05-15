@@ -1,0 +1,1 @@
+export const DONATIONS_SCENE_ID = 'DONATIONS_SCENE';

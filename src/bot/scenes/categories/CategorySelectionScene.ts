@@ -25,18 +25,18 @@ import { ViewReplyBuilder } from 'src/bot/classes/ViewReplyBuilder';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
 import { ViewCode } from 'src/bot/types';
 import { SearchGameSceneState } from '../search';
-import { AbstractHierarchyTreeScene } from '../core';
+import { AbstractFolderTreeScene, HierDatasetStructure } from '../core';
 import { Game } from '@prisma/client';
-import { HierDatasetStructure } from '../core/AbstractHierarchyTreeScene/types';
+import { DONATIONS_SCENE_ID, DonationsSceneState } from '../donations';
 
 @Scene(CATEGORY_SELECTION_SCENE_ID)
 @Injectable()
-export class CategorySelectionScene extends AbstractHierarchyTreeScene<
+export class CategorySelectionScene extends AbstractFolderTreeScene<
+  CategoryHierWithGames,
   CategoryWithGames,
   Game
 > {
   private viewReplyBuilder: ViewReplyBuilder;
-  private selectedCategory: CategoryHierWithGames;
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -49,10 +49,39 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
     );
   }
 
+  protected async fetchCurrentNodeData(
+    ctx: CategorySelectionSceneContext,
+    id: number | null,
+  ): Promise<CategoryHierWithGames> {
+    if (id === null) {
+      return null;
+    }
+
+    return this.databaseService.category.findUnique({
+      include: {
+        games: {
+          orderBy: {
+            name: 'asc',
+          },
+        },
+        children: {
+          include: {
+            games: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+        },
+      },
+      where: {
+        id,
+      },
+    });
+  }
+
   protected async getRootDatasetStructure(): Promise<
     HierDatasetStructure<CategoryWithGames, Game>
   > {
-    this.selectedCategory = null;
     const categories = await this.databaseService.category.findMany({
       include: {
         games: true,
@@ -79,34 +108,10 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
     };
   }
 
-  protected async getNodeDatasetStructure(
-    ctx: CategorySelectionSceneContext,
-  ): Promise<HierDatasetStructure> {
-    const currentNodeId = ctx.scene.state.nodeId;
-    this.selectedCategory = await this.databaseService.category.findUnique({
-      include: {
-        games: {
-          orderBy: {
-            name: 'asc',
-          },
-        },
-        children: {
-          include: {
-            games: true,
-          },
-          orderBy: {
-            name: 'asc',
-          },
-        },
-      },
-      where: {
-        id: currentNodeId,
-      },
-    });
-
+  protected async getNodeDatasetStructure(): Promise<HierDatasetStructure> {
     return {
-      parents: this.selectedCategory.children,
-      leafs: this.selectedCategory.games,
+      parents: this.currentNodeData.children,
+      leafs: this.currentNodeData.games,
     };
   }
 
@@ -134,20 +139,32 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
         ctx,
         ViewCode.CATEGORY_SELECTION_VIEW,
         {
-          description: this.selectedCategory?.description,
-          image: this.selectedCategory?.image,
+          description: this.currentNodeData?.description,
+          image: this.currentNodeData?.image,
         },
       );
 
+    const extraText = `\n\n<i>Для навигации используй кнопки <b>Вперед</b> и <b>Назад</b>, или напиши часть названия игры в чат и мы попробуем найти её в нашей коллекции</i> ✌🏻`;
+    const pageNumberText =
+      this.pageCount > 1
+        ? `\n(страница ${this.pageNumber} из ${this.pageCount})`
+        : ``;
+    const categoryText = this.currentNodeData
+      ? `Категория: <b><u>${this.currentNodeData.name}</u></b>\n\n`
+      : '';
+
     return {
-      text,
+      text: categoryText + text + extraText + pageNumberText,
       image,
       buttons: this.getDataMarkupButtons(ctx, data),
     };
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
-    return [[Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')]];
+    return [
+      [Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')],
+      [Markup.button.callback('🙏 Поблагодарить автора', 'nav_to_donations')],
+    ];
   }
 
   protected createReplyMessage(
@@ -200,21 +217,40 @@ export class CategorySelectionScene extends AbstractHierarchyTreeScene<
   private async createEmptyListReplyMessage(
     ctx: CategorySelectionSceneContext,
   ) {
-    return ctx.reply(
-      'Пока что список приставок пуст 😱.\nВозможно, произошла внутренняя ошибка. Вскоре мы все исправим!',
+    return this.viewReplyBuilder.createViewReplyMessage(
+      ctx,
+      ViewCode.EMPTY_CATEGORY_LIST_VIEW,
+      {
+        parse_mode: 'HTML',
+      },
     );
   }
 
   @Action('nav_to_feedback')
   async navToFeedback(@Ctx() ctx: CategorySelectionSceneContext) {
-    await ctx.scene.enter(FEEDBACK_SCENE_ID);
+    await ctx.scene.enter(FEEDBACK_SCENE_ID, {
+      prevScene: {
+        id: CATEGORY_SELECTION_SCENE_ID,
+        state: ctx.scene.state,
+      },
+    });
+  }
+
+  @Action('nav_to_donations')
+  async navToDonations(@Ctx() ctx: CategorySelectionSceneContext) {
+    await ctx.scene.enter<DonationsSceneState>(DONATIONS_SCENE_ID, {
+      prevScene: {
+        id: CATEGORY_SELECTION_SCENE_ID,
+        state: ctx.scene.state,
+      },
+    });
   }
 
   @On('message')
   async searchGame(@Ctx() ctx: CategorySelectionSceneContext) {
     await ctx.scene.enter<SearchGameSceneState>(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
-      categoryId: this.selectedCategory?.id || null,
+      categoryId: this.currentNodeData?.id || null,
       prevScene: {
         id: CATEGORY_SELECTION_SCENE_ID,
         state: { ...ctx.scene.session.state },

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   Action,
-  Command,
   Ctx,
   On,
   Scene,
@@ -13,10 +12,10 @@ import { DatabaseService } from 'src/database/database.service';
 import { FileStorageService } from 'src/file-storage/file-storage.service';
 import { BotSceneContext, ViewCode } from 'src/bot/types';
 import { Markup } from 'telegraf';
-import { GREETINGS_SCENE_ID } from '../greetings';
 import { Message } from 'telegraf/typings/core/types/typegram';
 import { CATEGORY_SELECTION_SCENE_ID } from '../categories';
 import { FEEDBACK_SCENE_ID } from './constants';
+import { DONATIONS_SCENE_ID, DonationsSceneState } from '../donations';
 
 @Injectable()
 @Scene(FEEDBACK_SCENE_ID)
@@ -79,7 +78,13 @@ export class FeedbackScene extends ViewReplyBuilder {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [Markup.button.callback('⬅️ В главное меню', 'return')],
+              [
+                Markup.button.callback(
+                  '🙏 Поблагодарить автора',
+                  'nav_to_donations',
+                ),
+              ],
+              [Markup.button.callback('⬅️ Назад', 'back')],
             ],
           },
         },
@@ -89,13 +94,19 @@ export class FeedbackScene extends ViewReplyBuilder {
     }
   }
 
-  @Action('return')
-  async returnToCategorySelection(@Ctx() ctx: BotSceneContext) {
-    await ctx.scene.enter(CATEGORY_SELECTION_SCENE_ID);
+  @Action('nav_to_donations')
+  async navToDonations(@Ctx() ctx: BotSceneContext) {
+    await ctx.scene.enter<DonationsSceneState>(DONATIONS_SCENE_ID, {
+      prevScene: ctx.scene.state.prevScene,
+    });
   }
 
-  @Command('start')
-  async exit(@Ctx() ctx: BotSceneContext) {
-    await ctx.scene.enter(GREETINGS_SCENE_ID);
+  @Action('back')
+  async navBackToPreviousScene(@Ctx() ctx: BotSceneContext) {
+    const prevScene = ctx.scene.state.prevScene || {
+      id: CATEGORY_SELECTION_SCENE_ID,
+      state: {},
+    };
+    await ctx.scene.enter(prevScene.id, prevScene.state);
   }
 }

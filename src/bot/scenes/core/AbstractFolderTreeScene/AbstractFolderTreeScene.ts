@@ -3,11 +3,12 @@ import { AbstractPaginatedListScene } from '../AbstractPaginatedListScene';
 import { BotSceneContext } from 'src/bot/types';
 import {
   HierDatasetStructure,
-  HierarchyTreeLeafNode,
-  HierarchyTreeNode,
-  HierarchyTreeParentNode,
-  HierarchyTreeSceneState,
+  FolderTreeLeafNode,
+  FolderTreeNode,
+  FolderTreeParentNode,
+  FolderTreeSceneState,
   ObjectWithId,
+  ObjectWithReplyData,
 } from './types';
 import { Markup } from 'telegraf';
 import { Action, Ctx } from 'nestjs-telegraf';
@@ -15,32 +16,31 @@ import { Action, Ctx } from 'nestjs-telegraf';
 /**
  * Абстрактный класс сцены для отрисовки иерархического списка в inline-меню с возможностью пагинации
  */
-export abstract class AbstractHierarchyTreeScene<
+export abstract class AbstractFolderTreeScene<
+  D extends ObjectWithReplyData = any,
   P extends ObjectWithId = any,
   L extends ObjectWithId = any,
-  S extends HierarchyTreeSceneState = HierarchyTreeSceneState,
-> extends AbstractPaginatedListScene<HierarchyTreeNode<P, L>, S> {
+  S extends FolderTreeSceneState = FolderTreeSceneState,
+> extends AbstractPaginatedListScene<FolderTreeNode<P, L>, S> {
+  protected currentNodeData: D;
+
   constructor(protected pageSize: number = 10) {
     super(pageSize);
   }
 
-  protected async getDataset(
+  protected async fetchDataset(
     ctx: BotSceneContext<S>,
-  ): Promise<HierarchyTreeNode<P, L>[]> {
+  ): Promise<FolderTreeNode<P, L>[]> {
     const currentNodeId = ctx.scene.state.nodeId ?? null;
-    let structure: HierDatasetStructure<P, L>;
 
     this.logger.debug(
       `[${ctx.from.username}] get scene dataset (nodeId = ${currentNodeId})`,
     );
 
-    if (currentNodeId) {
-      structure = await this.getNodeDatasetStructure(ctx);
-    } else {
-      structure = await this.getRootDatasetStructure(ctx);
-    }
+    this.currentNodeData = await this.fetchCurrentNodeData(ctx, currentNodeId);
 
-    const parentNodes: HierarchyTreeParentNode<P>[] = structure.parents.map(
+    const structure = await this.getDatasetStructure(ctx);
+    const parentNodes: FolderTreeParentNode<P>[] = structure.parents.map(
       (parent) => ({
         type: 'parent',
         id: parent.id,
@@ -48,21 +48,26 @@ export abstract class AbstractHierarchyTreeScene<
         data: parent,
       }),
     );
-    const leafNodes: HierarchyTreeLeafNode<L>[] = structure.leafs.map(
-      (leaf) => ({
-        type: 'leaf',
-        id: leaf.id,
-        parentId: currentNodeId,
-        data: leaf,
-      }),
-    );
+    const leafNodes: FolderTreeLeafNode<L>[] = structure.leafs.map((leaf) => ({
+      type: 'leaf',
+      id: leaf.id,
+      parentId: currentNodeId,
+      data: leaf,
+    }));
 
     return [...parentNodes, ...leafNodes];
   }
 
+  private async getDatasetStructure(ctx: BotSceneContext<S>) {
+    if (this.currentNodeData) {
+      return this.getNodeDatasetStructure(ctx);
+    }
+    return this.getRootDatasetStructure(ctx);
+  }
+
   protected getDataMarkupButtons(
     ctx: BotSceneContext<S>,
-    data: HierarchyTreeNode<P, L>[],
+    data: FolderTreeNode<P, L>[],
   ): InlineKeyboardButton[][] {
     return data.map((node) => {
       if (node.type === 'parent') {
@@ -101,6 +106,11 @@ export abstract class AbstractHierarchyTreeScene<
     ctx.scene.state.nodeId = nodeId;
     await ctx.scene.reenter();
   }
+
+  protected abstract fetchCurrentNodeData(
+    ctx: BotSceneContext<S>,
+    nodeId: number | null,
+  ): Promise<D>;
 
   protected abstract getRootDatasetStructure(
     ctx: BotSceneContext<S>,

@@ -15,6 +15,8 @@ export enum ViewCode {
   FEEDBACK_VIEW_BEFORE = 'FEEDBACK_VIEW_BEFORE',
   FEEDBACK_VIEW_AFTER = 'FEEDBACK_VIEW_AFTER',
   CATEGORY_SELECTION_VIEW = 'CATEGORY_SELECTION_VIEW',
+  EMPTY_CATEGORY_LIST_VIEW = 'EMPTY_CATEGORY_LIST_VIEW',
+  DONATIONS_VIEW = 'DONATIONS_VIEW',
 }
 
 export interface BotSceneSessionData<S extends object = any>
@@ -31,6 +33,7 @@ export interface BotSceneSession<
   chatId?: number;
   sentMessageIds: number[];
   lastRequestDate?: Date;
+  sessionsCount?: number;
   state?: S;
 }
 
@@ -58,4 +61,11 @@ export interface BotSceneContext<
 > extends SceneContext<D> {
   session: BotSceneSession<S, D>;
   scene: BotSceneContextScene<BotSceneContext<S, D>, S, D>;
+}
+
+export interface StateWithPreviousSceneState<S extends object = any> {
+  prevScene?: {
+    id: string;
+    state: S;
+  };
 }
