@@ -161,10 +161,13 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
   }
 
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
-    return [
-      [Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')],
-      [Markup.button.callback('🙏 Поблагодарить автора', 'nav_to_donations')],
-    ];
+    if (this.currentNodeData === null) {
+      return [
+        [Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')],
+        [Markup.button.callback('🙏 Поблагодарить автора', 'nav_to_donations')],
+      ];
+    }
+    return [];
   }
 
   protected createReplyMessage(
