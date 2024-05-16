@@ -163,8 +163,14 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
   protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
     if (this.currentNodeData === null) {
       return [
+        [
+          Markup.button.url(
+            '🔄 Новости и Обновления',
+            'https://t.me/gamebase54',
+          ),
+        ],
         [Markup.button.callback('👻 Оставить отзыв', 'nav_to_feedback')],
-        [Markup.button.callback('🙏 Поблагодарить автора', 'nav_to_donations')],
+        [Markup.button.callback('🙏 Помощь проекту', 'nav_to_donations')],
       ];
     }
     return [];

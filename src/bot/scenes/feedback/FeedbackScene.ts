@@ -80,7 +80,7 @@ export class FeedbackScene extends ViewReplyBuilder {
             inline_keyboard: [
               [
                 Markup.button.callback(
-                  '🙏 Поблагодарить автора',
+                  '🙏 Помощь проекту',
                   'nav_to_donations',
                 ),
               ],
