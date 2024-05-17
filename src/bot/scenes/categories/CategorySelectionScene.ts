@@ -13,6 +13,7 @@ import {
   CategoryWithGames,
   CategorySelectionSceneHierNode,
   CategoryHierWithGames,
+  CategorySelectionSceneRenderOptions,
 } from './types';
 import {
   ExtraEditMessageText,
@@ -108,10 +109,13 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
     };
   }
 
-  protected async getNodeDatasetStructure(): Promise<HierDatasetStructure> {
+  protected async getNodeDatasetStructure(
+    ctx: CategorySelectionSceneContext,
+    currentNodeData: CategoryHierWithGames,
+  ): Promise<HierDatasetStructure> {
     return {
-      parents: this.currentNodeData.children,
-      leafs: this.currentNodeData.games,
+      parents: currentNodeData.children,
+      leafs: currentNodeData.games,
     };
   }
 
@@ -133,24 +137,25 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
   protected async getDataMarkup(
     ctx: CategorySelectionSceneContext,
     data: CategorySelectionSceneHierNode[],
+    extraOptions: CategorySelectionSceneRenderOptions,
   ): Promise<ICategoryDataMarkup> {
     const { text, image } =
       await this.viewReplyBuilder.getViewReplyMessageMarkup(
         ctx,
         ViewCode.CATEGORY_SELECTION_VIEW,
         {
-          description: this.currentNodeData?.description,
-          image: this.currentNodeData?.image,
+          description: extraOptions.currentNodeData?.description,
+          image: extraOptions.currentNodeData?.image,
         },
       );
 
     const extraText = `\n\n<i>Для навигации используй кнопки <b>Вперед</b> и <b>Назад</b>, или напиши часть названия игры в чат и мы попробуем найти её в нашей коллекции</i> ✌🏻`;
     const pageNumberText =
-      this.pageCount > 1
-        ? `\n(страница ${this.pageNumber} из ${this.pageCount})`
+      ctx.scene.state.pageCount > 1
+        ? `\n(страница ${ctx.scene.state.pageNumber} из ${ctx.scene.state.pageCount})`
         : ``;
-    const categoryText = this.currentNodeData
-      ? `Категория: <b><u>${this.currentNodeData.name}</u></b>\n\n`
+    const categoryText = extraOptions.currentNodeData
+      ? `Категория: <b><u>${extraOptions.currentNodeData.name}</u></b>\n\n`
       : '';
 
     return {
@@ -160,8 +165,11 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
     };
   }
 
-  protected async getExtraButtonsMarkup(): Promise<InlineKeyboardButton[][]> {
-    if (this.currentNodeData === null) {
+  protected async getExtraButtonsMarkup(
+    ctx: CategorySelectionSceneContext,
+    extraOptions: CategorySelectionSceneRenderOptions,
+  ): Promise<InlineKeyboardButton[][]> {
+    if (extraOptions.currentNodeData === null) {
       return [
         [
           Markup.button.url(
@@ -216,10 +224,14 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
       reply_markup: markup,
     };
 
-    if (!image) {
-      await ctx.editMessageText(text, commonOptions);
-    } else {
-      await ctx.editMessageCaption(text, commonOptions);
+    try {
+      if (!image) {
+        await ctx.editMessageText(text, commonOptions);
+      } else {
+        await ctx.editMessageCaption(text, commonOptions);
+      }
+    } catch (e) {
+      this.logger.error(e);
     }
   }
 
@@ -259,7 +271,7 @@ export class CategorySelectionScene extends AbstractFolderTreeScene<
   async searchGame(@Ctx() ctx: CategorySelectionSceneContext) {
     await ctx.scene.enter<SearchGameSceneState>(SEARCH_GAME_SCENE_ID, {
       query: (ctx.message as any).text,
-      categoryId: this.currentNodeData?.id || null,
+      categoryId: ctx.scene.state.nodeId || null,
       prevScene: {
         id: CATEGORY_SELECTION_SCENE_ID,
         state: { ...ctx.scene.session.state },

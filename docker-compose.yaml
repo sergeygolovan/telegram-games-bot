@@ -1,19 +1,19 @@
 version: '2'
 
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: backend.Dockerfile
-    ports:
-      - '8480:3002'
-    volumes:
-      - ./prisma/dev.db:/app/prisma/dev.db
-      - ./prisma/session.db:/app/prisma/session.db
-    depends_on:
-      - minio
-    links:
-      - minio
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: backend.Dockerfile
+  #   ports:
+  #     - '8480:3002'
+  #   volumes:
+  #     - ./prisma/dev.db:/app/prisma/dev.db
+  #     - ./prisma/session.db:/app/prisma/session.db
+  #   depends_on:
+  #     - minio
+  #   links:
+  #     - minio
 
   minio:
     image: 'minio/minio:latest'

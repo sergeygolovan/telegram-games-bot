@@ -22,8 +22,6 @@ export abstract class AbstractFolderTreeScene<
   L extends ObjectWithId = any,
   S extends FolderTreeSceneState = FolderTreeSceneState,
 > extends AbstractPaginatedListScene<FolderTreeNode<P, L>, S> {
-  protected currentNodeData: D;
-
   constructor(protected pageSize: number = 10) {
     super(pageSize);
   }
@@ -36,8 +34,6 @@ export abstract class AbstractFolderTreeScene<
     this.logger.debug(
       `[${ctx.from.username}] get scene dataset (nodeId = ${currentNodeId})`,
     );
-
-    this.currentNodeData = await this.fetchCurrentNodeData(ctx, currentNodeId);
 
     const structure = await this.getDatasetStructure(ctx);
     const parentNodes: FolderTreeParentNode<P>[] = structure.parents.map(
@@ -59,8 +55,12 @@ export abstract class AbstractFolderTreeScene<
   }
 
   private async getDatasetStructure(ctx: BotSceneContext<S>) {
-    if (this.currentNodeData) {
-      return this.getNodeDatasetStructure(ctx);
+    const currentNodeData = await this.fetchCurrentNodeData(
+      ctx,
+      ctx.scene.state.nodeId ?? null,
+    );
+    if (currentNodeData) {
+      return this.getNodeDatasetStructure(ctx, currentNodeData);
     }
     return this.getRootDatasetStructure(ctx);
   }
@@ -88,6 +88,19 @@ export abstract class AbstractFolderTreeScene<
     }
 
     return buttons;
+  }
+
+  protected async render(
+    ctx: BotSceneContext<S>,
+    data: FolderTreeNode<P, L>[],
+  ) {
+    const currentNodeData = await this.fetchCurrentNodeData(
+      ctx,
+      ctx.scene.state.nodeId ?? null,
+    );
+    return super.render(ctx, data, {
+      currentNodeData,
+    });
   }
 
   @Action('up')
@@ -118,6 +131,7 @@ export abstract class AbstractFolderTreeScene<
 
   protected abstract getNodeDatasetStructure(
     ctx: BotSceneContext<S>,
+    node: D,
   ): Promise<HierDatasetStructure>;
 
   protected abstract getParentNodeButtonMarkup(node: P): InlineKeyboardButton;

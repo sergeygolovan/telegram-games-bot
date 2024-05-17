@@ -69,7 +69,7 @@ export class SearchGameScene extends AbstractPaginatedListScene<GameWithCategory
     });
 
     const items = fuse.search(query, {
-      limit: 6,
+      limit: 10,
     });
 
     return items.map(({ item }) => item);

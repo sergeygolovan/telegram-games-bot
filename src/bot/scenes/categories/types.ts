@@ -24,6 +24,10 @@ export type CategorySelectionSceneHierNode = FolderTreeNode<
   Game
 >;
 
+export type CategorySelectionSceneRenderOptions = {
+  currentNodeData: CategoryHierWithGames | null;
+};
+
 export type CategorySelectionSceneState = FolderTreeSceneState;
 
 export type CategorySelectionSceneContext =

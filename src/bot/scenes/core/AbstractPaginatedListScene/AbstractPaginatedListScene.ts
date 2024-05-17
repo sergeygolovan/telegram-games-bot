@@ -5,26 +5,21 @@ import {
   InlineKeyboardMarkup,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { IDataMarkup } from './types';
+import { IDataMarkup, PaginationSceneState } from './types';
 import { BotSceneContext } from 'src/bot/types';
 import { Logger } from '@nestjs/common';
 
 /**
  * Базовый класс сцены для отрисовки inline-меню с возможностью пагинации
  */
-export abstract class AbstractPaginatedListScene<T, S extends object = any> {
-  protected totalCount = 0;
-  protected pageNumber = 1;
-  protected pageCount = 1;
-  private data: T[] = [];
-  private paginatedData: T[];
-  private replyMessage: Message = null;
-  protected logger = new Logger(AbstractPaginatedListScene.name);
+export abstract class AbstractPaginatedListScene<
+  T,
+  S extends PaginationSceneState = PaginationSceneState,
+  P extends object = object,
+> {
+  protected readonly logger = new Logger(AbstractPaginatedListScene.name);
 
-  constructor(
-    protected readonly sceneId,
-    protected pageSize = 10,
-  ) {}
+  constructor(protected pageSize = 10) {}
 
   /**
    * Обработчик входа в сцену
@@ -45,15 +40,13 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   protected async initialize(ctx: BotSceneContext<S>) {
     this.logger.debug(`[${ctx.from.username}] initialize scene`);
 
-    this.data = await this.fetchDataset(ctx);
+    const data = await this.fetchDataset(ctx);
+    ctx.scene.state.totalCount = data.length;
+    ctx.scene.state.pageNumber = 1;
+    ctx.scene.state.pageCount = Math.ceil(data.length / this.pageSize);
+    ctx.scene.state.replyMessageId = null;
 
-    this.totalCount = this.data.length;
-    this.pageNumber = 1;
-    this.pageCount = Math.ceil(this.totalCount / this.pageSize);
-    this.paginatedData = this.data.slice(0, this.pageSize);
-    this.replyMessage = null;
-
-    await this.render(ctx);
+    await this.render(ctx, this.getPaginatedData(ctx, data));
   }
 
   /**
@@ -62,13 +55,13 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    */
   @SceneLeave()
   protected async leave(@Ctx() ctx: BotSceneContext<S>) {
-    if (this.replyMessage) {
+    if (ctx.scene.state.replyMessageId) {
       try {
-        await ctx.deleteMessage(this.replyMessage.message_id);
+        await ctx.deleteMessage(ctx.scene.state.replyMessageId);
       } catch (e) {
         console.error(e);
       }
-      this.replyMessage = null;
+      ctx.scene.state.replyMessageId = null;
     }
   }
 
@@ -78,8 +71,8 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    */
   @Action('prev')
   protected async prev(@Ctx() ctx: BotSceneContext<S>) {
-    if (this.pageNumber > 1) {
-      this.pageNumber -= 1;
+    if (ctx.scene.state.pageNumber > 1) {
+      ctx.scene.state.pageNumber = Math.max(ctx.scene.state.pageNumber - 1, 0);
       await this.onPageNumberChanged(ctx);
     }
   }
@@ -90,10 +83,23 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    */
   @Action('next')
   protected async next(@Ctx() ctx: BotSceneContext<S>) {
-    if (this.totalCount - this.pageNumber * this.pageSize > 0) {
-      this.pageNumber += 1;
+    if (
+      ctx.scene.state.totalCount - ctx.scene.state.pageNumber * this.pageSize >
+      0
+    ) {
+      ctx.scene.state.pageNumber = Math.min(
+        ctx.scene.state.pageNumber + 1,
+        ctx.scene.state.pageCount,
+      );
       await this.onPageNumberChanged(ctx);
     }
+  }
+
+  protected getPaginatedData(ctx: BotSceneContext<S>, data: T[]) {
+    return data.slice(
+      (ctx.scene.state.pageNumber - 1) * this.pageSize,
+      ctx.scene.state.pageNumber * this.pageSize,
+    );
   }
 
   /**
@@ -101,11 +107,8 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    * @param ctx
    */
   protected async onPageNumberChanged(ctx: BotSceneContext<S>) {
-    this.paginatedData = this.data.slice(
-      (this.pageNumber - 1) * this.pageSize,
-      this.pageNumber * this.pageSize,
-    );
-    await this.render(ctx);
+    const data = await this.fetchDataset(ctx);
+    await this.render(ctx, this.getPaginatedData(ctx, data));
   }
 
   /**
@@ -119,10 +122,13 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   ): Promise<InlineKeyboardButton[][]> {
     const buttons = [];
 
-    if (this.pageNumber > 1) {
+    if (ctx.scene.state.pageNumber > 1) {
       buttons.push(Markup.button.callback('⬅️ Назад', 'prev'));
     }
-    if (this.totalCount - this.pageNumber * this.pageSize > 0) {
+    if (
+      ctx.scene.state.totalCount - ctx.scene.state.pageNumber * this.pageSize >
+      0
+    ) {
       buttons.push(Markup.button.callback('Вперед ➡️', 'next'));
     }
 
@@ -137,14 +143,14 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    * Метод отрисовки списка
    * @param ctx
    */
-  protected async render(ctx: BotSceneContext<S>) {
+  protected async render(ctx: BotSceneContext<S>, data: T[], extraOptions?: P) {
     this.logger.debug(`[${ctx.from.username}] render scene`);
-    const dataMarkup = await this.getDataMarkup(ctx, this.paginatedData);
+    const dataMarkup = await this.getDataMarkup(ctx, data, extraOptions);
     const navButtonsMarkup = await this.getNavButtonsMarkup(ctx);
     let extraButtonsMarkup: InlineKeyboardButton[][] = [];
 
     if (this.getExtraButtonsMarkup) {
-      extraButtonsMarkup = await this.getExtraButtonsMarkup(ctx);
+      extraButtonsMarkup = await this.getExtraButtonsMarkup(ctx, extraOptions);
     }
 
     const replyMarkup: InlineKeyboardMarkup = {
@@ -154,12 +160,13 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
       ),
     };
 
-    if (this.replyMessage === null) {
-      this.replyMessage = await this.createReplyMessage(
+    if (ctx.scene.state.replyMessageId === null) {
+      const message = await this.createReplyMessage(
         ctx,
         replyMarkup,
         dataMarkup,
       );
+      ctx.scene.state.replyMessageId = message.message_id;
     } else {
       await this.editReplyMessage(ctx, replyMarkup, dataMarkup);
     }
@@ -172,6 +179,7 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
   protected abstract getDataMarkup(
     ctx: BotSceneContext<S>,
     data: T[],
+    extraOptions?: P,
   ): Promise<IDataMarkup>;
 
   /**
@@ -185,6 +193,7 @@ export abstract class AbstractPaginatedListScene<T, S extends object = any> {
    */
   protected abstract getExtraButtonsMarkup?(
     ctx: BotSceneContext<S>,
+    extraOptions?: P,
   ): Promise<InlineKeyboardButton[][]>;
 
   /**

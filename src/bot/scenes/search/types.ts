@@ -1,5 +1,5 @@
 import { Category, Game } from '@prisma/client';
-import { IDataMarkup, IMessageContent } from '../core';
+import { IDataMarkup, IMessageContent, PaginationSceneState } from '../core';
 import { BotSceneContext, StateWithPreviousSceneState } from 'src/bot/types';
 
 export type GameWithCategory = Game & {
@@ -11,6 +11,7 @@ export interface ISearchGameDataMarkup extends IDataMarkup, IMessageContent {}
 export type SearchGameSceneState = {
   query?: string;
   categoryId?: number;
-} & StateWithPreviousSceneState;
+} & PaginationSceneState &
+  StateWithPreviousSceneState;
 
 export type SearchGameSceneContext = BotSceneContext<SearchGameSceneState>;

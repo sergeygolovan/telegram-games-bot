@@ -1,3 +1,5 @@
+import { PaginationSceneState } from '../AbstractPaginatedListScene';
+
 export type ObjectWithId<T = number> = {
   id: T;
 };
@@ -27,7 +29,7 @@ export type FolderTreeNode<P extends object = any, L extends object = any> =
   | FolderTreeParentNode<P>
   | FolderTreeLeafNode<L>;
 
-export interface FolderTreeSceneState {
+export interface FolderTreeSceneState extends PaginationSceneState {
   parentNodeId: number | null;
   nodeId: number | null;
 }

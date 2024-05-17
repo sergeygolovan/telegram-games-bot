@@ -9,3 +9,10 @@ export interface IMessageContent {
   text: string;
   image: internal.Readable | null;
 }
+
+export interface PaginationSceneState {
+  pageNumber?: number;
+  pageCount?: number;
+  totalCount?: number;
+  replyMessageId?: number;
+}
