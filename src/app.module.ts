@@ -3,6 +3,7 @@ import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { BotModule } from './bot/bot.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { FileStorageModule } from './file-storage/file-storage.module';
     }),
     DatabaseModule,
     FileStorageModule,
+    ScheduleModule.forRoot(),
     BotModule,
   ],
   controllers: [],

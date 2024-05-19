@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
 }
 
 datasource db {
@@ -31,13 +29,13 @@ model Category {
 model Game {
   id          Int       @id @default(autoincrement())
   name        String
-  category    Category? @relation(fields: [categoryId], references: [id])
   categoryId  Int?
   url         String
   showDetails Boolean   @default(false)
   releaseDate DateTime?
   companyName String?
   description String?
+  category    Category? @relation(fields: [categoryId], references: [id])
 }
 
 model Feedback {
@@ -45,4 +43,19 @@ model Feedback {
   createdAt DateTime @default(now())
   username  String
   message   String
+}
+
+model Session {
+  key     String  @id
+  session String?
+
+  @@map("telegraf-sessions")
+}
+
+model Notification {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  message         String
+  activeUsersOnly Boolean  @default(true)
+  wasHandled      Boolean  @default(false)
 }
