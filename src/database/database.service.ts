@@ -1,4 +1,9 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { General, Prisma, PrismaClient } from '@prisma/client';
 import { BotSceneSession, ViewCode } from 'src/bot/types';
 
@@ -7,12 +12,17 @@ export class DatabaseService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly logger = new Logger(DatabaseService.name);
   async getViewProperties(code: ViewCode): Promise<General> {
-    return this.general.findUniqueOrThrow({
-      where: {
-        code,
-      },
-    });
+    try {
+      return this.general.findUniqueOrThrow({
+        where: {
+          code,
+        },
+      });
+    } catch (e) {
+      this.logger.error(`Can't find view properties (code: ${code})`);
+    }
   }
 
   async pullNotification(activeUsersOnly: boolean = true) {

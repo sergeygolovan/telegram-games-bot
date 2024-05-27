@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["views"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -46,10 +45,11 @@ model Feedback {
 }
 
 model Session {
-  key     String  @id
-  session String?
-
-  @@map("telegraf-sessions")
+  key      String  @id
+  userId   Int
+  userName String?
+  fullName String?
+  session  String?
 }
 
 model Notification {

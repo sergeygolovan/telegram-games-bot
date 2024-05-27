@@ -78,12 +78,7 @@ export class FeedbackScene extends ViewReplyBuilder {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [
-                Markup.button.callback(
-                  '🙏 Помощь проекту',
-                  'nav_to_donations',
-                ),
-              ],
+              [Markup.button.callback('🙏 Помощь проекту', 'nav_to_donations')],
               [Markup.button.callback('⬅️ Назад', 'back')],
             ],
           },

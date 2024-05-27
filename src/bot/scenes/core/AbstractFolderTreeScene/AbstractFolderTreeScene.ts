@@ -106,8 +106,8 @@ export abstract class AbstractFolderTreeScene<
   @Action('up')
   protected async up(@Ctx() ctx: BotSceneContext<S>) {
     this.logger.debug(`[${ctx.from.username}] move up on te hier structure`);
-    ctx.scene.state.parentNodeId = null;
     ctx.scene.state.nodeId = ctx.scene.state.parentNodeId;
+    ctx.scene.state.parentNodeId = null;
     await ctx.scene.reenter();
   }
 
